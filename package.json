@@ -1,0 +1,9 @@
+{
+  "name": "fotos-retrato",
+  "version": "1.0.0",
+  "description": "Pone fotos en formato retrato de Instagram con fondo blanco, sin recortar",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2" }
+}
