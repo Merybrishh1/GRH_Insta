@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fotos IG">
+<title>Fotos a retrato de Instagram</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--text:#1d1d1b;--muted:#6b6b66;--accent:#d6336c;--border:#e3e1dc}
+@media (prefers-color-scheme:dark){:root{--bg:#161615;--card:#222221;--text:#f2f1ee;--muted:#a3a29c;--accent:#f06595;--border:#33332f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:max(20px,env(safe-area-inset-top)) 16px max(40px,env(safe-area-inset-bottom));max-width:640px;margin-inline:auto}
+h1{font-size:1.35rem;margin:0 0 6px}
+p.sub{margin:0 0 18px;color:var(--muted);font-size:.95rem;line-height:1.4}
+.btn{display:block;width:100%;padding:16px;border:0;border-radius:14px;background:var(--accent);color:#fff;font-size:1.05rem;font-weight:600;text-align:center;cursor:pointer;text-decoration:none}
+.btn.sec{background:var(--card);color:var(--text);border:1px solid var(--border);font-weight:500;padding:12px;font-size:.95rem}
+select{width:100%;padding:12px;margin:0 0 12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:1rem}
+input[type=file]{display:none}
+#grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:20px}
+.item{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px}
+.item img{width:100%;height:auto;display:block;border-radius:6px;border:1px solid var(--border)}
+.row{display:flex;gap:8px;margin-top:10px}
+.row .btn{flex:1}
+.hint{color:var(--muted);font-size:.85rem;margin:8px 2px 0;line-height:1.35}
+#bar{display:none;margin-top:16px}
+</style>
+</head>
+<body>
+<h1>Fotos a retrato de Instagram</h1>
+<p class="sub">Sube las fotos y se colocarán centradas, sin recortar, sobre fondo blanco.</p>
+
+<select id="fmt">
+  <option value="1080x1350">Retrato 4:5 (1080 × 1350)</option>
+  <option value="1080x1080">Cuadrado 1:1 (1080 × 1080)</option>
+  <option value="1080x1920">Story 9:16 (1080 × 1920)</option>
+</select>
+
+<label class="btn" for="f">Elegir fotos</label>
+<input id="f" type="file" accept="image/*" multiple>
+
+<div id="bar">
+  <button class="btn sec" id="shareAll">Compartir / guardar todas</button>
+  <p class="hint">En el iPhone: Compartir → “Guardar imagen” para llevarlas a la galería.</p>
+</div>
+<div id="grid"></div>
+
+<script>
+const grid = document.getElementById('grid'), bar = document.getElementById('bar'), fmt = document.getElementById('fmt');
+let files = [], results = [];
+
+async function load(file){
+  try { return await createImageBitmap(file, {imageOrientation:'from-image'}); }
+  catch(e){
+    return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+  }
+}
+const iw = i => i.width || i.naturalWidth, ih = i => i.height || i.naturalHeight;
+
+async function process(file){
+  const [W, H] = fmt.value.split('x').map(Number);
+  const img = await load(file);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  const s = Math.min(W / iw(img), H / ih(img));
+  const dw = Math.round(iw(img) * s), dh = Math.round(ih(img) * s);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(img, Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.95));
+  const base = file.name.replace(/\.[^.]+$/, '') || 'foto';
+  return new File([blob], base + '_instagram.jpg', {type:'image/jpeg'});
+}
+
+async function share(list){
+  try {
+    if (navigator.canShare && navigator.canShare({files:list})) { await navigator.share({files:list}); return; }
+  } catch(e){ if (e.name === 'AbortError') return; }
+  alert('Tu navegador no permite compartir. Usa “Descargar” o mantén pulsada la imagen.');
+}
+
+async function render(){
+  grid.innerHTML = ''; results = [];
+  if (!files.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'block';
+  for (const f of files) {
+    const d = document.createElement('div'); d.className = 'item';
+    try {
+      const out = await process(f); results.push(out);
+      const url = URL.createObjectURL(out);
+      d.innerHTML = '<img alt="Resultado"><div class="row"><button class="btn sec">Compartir / guardar</button><a class="btn sec">Descargar</a></div>';
+      d.querySelector('img').src = url;
+      const a = d.querySelector('a'); a.href = url; a.download = out.name;
+      d.querySelector('button').onclick = () => share([out]);
+    } catch(err){ d.textContent = 'No se pudo procesar ' + f.name; }
+    grid.appendChild(d);
+  }
+}
+
+document.getElementById('f').addEventListener('change', e => { files = [...e.target.files]; e.target.value = ''; render(); });
+fmt.addEventListener('change', render);
+document.getElementById('shareAll').onclick = () => results.length && share(results);
+</script>
+</body>
+</html>
